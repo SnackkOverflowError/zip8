@@ -39,11 +39,11 @@ pub fn main() !void {
 
     print("read in {} bytes\n", .{size});
 
-    const cpu: CpuCore = CpuCore{};
+    var cpu: CpuCore = CpuCore{};
 
     var i: usize = 0;
     while (i < size) {
-        try cpu.printOpCode(.{ prog_mem[i], prog_mem[i + 1] });
+        try cpu.processInstruction(.{ prog_mem[i], prog_mem[i + 1] });
         i += 2;
     }
 }
