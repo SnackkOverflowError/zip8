@@ -12,10 +12,10 @@ pub const CpuCore = struct {
         print("hex: 0x{X:0>2}{X:0>2}", .{ op_code[0], op_code[1] });
 
         const first_nib = op_code[0] & 0b11110000;
+                const instr: u16 = combineOpCode(op_code);
 
         switch (first_nib) {
             0x00 => {
-                const instr: u16 = combineOpCode(op_code);
                 switch (instr) {
                     0x00E0 => {
                         print(" --- CLS  --- ", .{});
@@ -26,7 +26,7 @@ pub const CpuCore = struct {
                     },
                     else => {
                         const addr = instr & 0x0FFF;
-                        print(" --- SYS 0x{X:0>3}  --- addr: {}", .{ addr, addr });
+                        print(" --- SYS 0x{X:0>3}  --- addr: {d:0>4} --- {b:0>16}", .{ addr, addr, instr });
                     },
                 }
             },
@@ -53,7 +53,7 @@ pub const CpuCore = struct {
                 if (last_nib == 0x00) {
                     print(" --- SE V{}, V{}", .{ reg1, reg2 });
                 } else {
-                    print(" --- NOOP ---", .{});
+                    print(" --- NOOP --- {b:0>16}", .{instr});
                 }
             },
             0x60 => {
@@ -97,7 +97,7 @@ pub const CpuCore = struct {
                         print(" --- SHL V{}, V{} --- ", .{ reg1, reg2 });
                     },
                     else => {
-                        print(" --- NOOP ---", .{});
+                        print(" --- NOOP --- {b:0>16}", .{instr});
                     },
                 }
             },
@@ -108,7 +108,7 @@ pub const CpuCore = struct {
                 if (last_nib == 0x00) {
                     print(" --- SNE V{}, V{}", .{ reg1, reg2 });
                 } else {
-                    print(" --- NOOP ---", .{});
+                    print(" --- NOOP --- {b:0>16}", .{instr});
                 }
             },
             0xA0 => {
@@ -139,7 +139,7 @@ pub const CpuCore = struct {
                         print(" --- SKNP V{}", .{reg1});
                     },
                     else => {
-                        print(" --- NOOP ----", .{});
+                        print(" --- NOOP --- {b:0>16}", .{instr});
                     },
                 }
             },
@@ -174,12 +174,12 @@ pub const CpuCore = struct {
                         print(" --- LD V{}, [I] --- ", .{reg1});
                     },
                     else => {
-                        print(" --- NOOP ---", .{});
+                        print(" --- NOOP --- {b:0>16}", .{instr});
                     },
                 }
             },
             else => {
-                print(" --- NOOP ---", .{});
+                print(" --- NOOP --- {b:0>16}", .{instr});
             },
         }
 
