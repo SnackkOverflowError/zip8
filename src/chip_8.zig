@@ -7,19 +7,41 @@ pub const CpuCore = struct {
     I: u16 = 0,
     delay_timer: u8 = 0,
     sound_timer: u8 = 0,
+    program_counter: u16 = 0x0200,
 
-    pub fn processInstruction(self: *CpuCore, op_code: [2]u8) !void {
+    screen_buffer: [4][8]u8 = [_][8]u8{
+        [_]u8{0} ** 8,
+        [_]u8{0} ** 8,
+        [_]u8{0} ** 8,
+        [_]u8{0} ** 8,
+    },
+
+    memory: [4096]u8 = [_]u8{0} ** 4096,
+
+    pub fn loadROM(self: *CpuCore, rom: []u8, memsize: usize) void {
+        const end: usize = 0x200 + memsize;
+        @memcpy(self.memory[0x200..end], rom[0..memsize]);
+
+        self.program_counter = 0x200;
+    }
+
+    pub fn cycle(self: *CpuCore) !void {
+        const op_code: [2]u8 = self.memory[self.program_counter .. self.program_counter + 1];
+        try self.processInstruction(op_code);
+    }
+
+    fn processInstruction(self: *CpuCore, op_code: [2]u8) !void {
         print("hex: 0x{X:0>2}{X:0>2}", .{ op_code[0], op_code[1] });
 
         const first_nib = op_code[0] & 0b11110000;
-                const instr: u16 = combineOpCode(op_code);
+        const instr: u16 = combineOpCode(op_code);
 
         switch (first_nib) {
             0x00 => {
                 switch (instr) {
                     0x00E0 => {
                         print(" --- CLS  --- ", .{});
-                        try self.CLS();
+                        self.CLS();
                     },
                     0x00EE => {
                         print(" --- RET  --- ", .{});
@@ -186,8 +208,95 @@ pub const CpuCore = struct {
         print("\n", .{});
     }
 
-    fn CLS(self: *CpuCore) !void {
+    fn CLS(self: *CpuCore) void {
+        self.screen_buffer = [4][8]u8{
+            [_]u8{0} ** 8,
+            [_]u8{0} ** 8,
+            [_]u8{0} ** 8,
+            [_]u8{0} ** 8,
+        };
+    }
+    fn RET(self: *CpuCore) !void {
         _ = self;
+        // TODO stack pointer
+    }
+
+    fn JMP(self: *CpuCore, addr: u8) void {
+        self.program_counter = addr;
+    }
+
+    fn CALL(self: *CpuCore, addr: u8) void {
+        // TODO stack pointer
+        self.program_counter = addr;
+    }
+
+    fn SE(self: *CpuCore, a: u8, b: u8) void {
+        if (a == b) {
+            self.program_counter += 2;
+        }
+    }
+
+    fn SNE(self: *CpuCore, a: u8, b: u8) void {
+        if (a != b) {
+            self.program_counter += 2;
+        }
+    }
+
+    fn LD(a: *u8, b: u8) void {
+        a = b;
+    }
+
+    fn ADD(a: *u8, b: u8) void {
+        a +|= b;
+    }
+
+    fn OR(a: *u8, b: u8) void {
+        a |= b;
+    }
+
+    fn AND(a: *u8, b: u8) void {
+        a &= b;
+    }
+
+    fn XOR(a: *u8, b: u8) void {
+        a ^= b;
+    }
+
+    // ADD with carry
+    fn ADDC(self: *CpuCore, a: *u8, b: u8) void {
+        if (a + b > 255) {
+            self.registers[0x0F] = 0x1;
+        } else {
+            self.registers[0x0F] = 0x0;
+        }
+        a +|= b;
+    }
+
+    fn SUBC(self: *CpuCore, a: *u8, b: u8) void {
+        if (a > b) {
+            self.registers[0x0F] = 0x1;
+        } else {
+            self.registers[0x0F] = 0x0;
+        }
+        a -|= b;
+    }
+
+    fn SHR(self: *CpuCore, a: *u8) void {
+        if (a & 0x1 == 0x1) {
+            self.registers[0x0F] = 0x1;
+        } else {
+            self.registers[0x0F] = 0x0;
+        }
+        a = a >> 1;
+    }
+
+    fn SHL(self: *CpuCore, a: *u8) void {
+        if (a & 0x80 == 0x80) {
+            self.registers[0x0F] = 0x1;
+        } else {
+            self.registers[0x0F] = 0x0;
+        }
+        a = a >> 1;
     }
 };
 
