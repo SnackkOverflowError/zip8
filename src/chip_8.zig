@@ -18,7 +18,8 @@ pub const CpuCore = struct {
 
     memory: [4096]u8 = [_]u8{0} ** 4096,
 
-    pub fn loadROM(self: *CpuCore, rom: []u8, memsize: usize) void {
+    pub fn loadROM(self: *CpuCore, rom: []const u8) void {
+        const memsize: usize = rom.len;
         const end: usize = 0x200 + memsize;
         @memcpy(self.memory[0x200..end], rom[0..memsize]);
 
@@ -26,7 +27,8 @@ pub const CpuCore = struct {
     }
 
     pub fn cycle(self: *CpuCore) !void {
-        const op_code: [2]u8 = self.memory[self.program_counter .. self.program_counter + 1];
+        const op_code: [2]u8 = [2]u8{ self.memory[self.program_counter], self.memory[self.program_counter + 1] };
+        self.program_counter += 2;
         try self.processInstruction(op_code);
     }
 
@@ -55,6 +57,7 @@ pub const CpuCore = struct {
             0x10 => {
                 const addr: u16 = combineOpCode(op_code) & 0x0FFF;
                 print(" --- JMP 0x{X:0>3} --- addr: {}", .{ addr, addr });
+                self.JMP(addr);
             },
             0x20 => {
                 const addr: u16 = combineOpCode(op_code) & 0x0FFF;
@@ -63,10 +66,12 @@ pub const CpuCore = struct {
             0x30 => {
                 const reg = op_code[0] & 0x0F;
                 print(" --- SE V{}, 0x{X:0>3} --- val: {}", .{ reg, op_code[1], op_code[1] });
+                self.SE(self.registers[reg], op_code[1]);
             },
             0x40 => {
                 const reg = op_code[0] & 0x0F;
                 print(" --- SNE V{}, 0x{X:0>3} --- val: {}", .{ reg, op_code[1], op_code[1] });
+                self.SNE(self.registers[reg], op_code[1]);
             },
             0x50 => {
                 const reg1 = op_code[0] & 0x0F;
@@ -74,6 +79,7 @@ pub const CpuCore = struct {
                 const last_nib = op_code[1] & 0x0F;
                 if (last_nib == 0x00) {
                     print(" --- SE V{}, V{}", .{ reg1, reg2 });
+                    self.SE(self.registers[reg1], self.registers[reg2]);
                 } else {
                     print(" --- NOOP --- {b:0>16}", .{instr});
                 }
@@ -81,10 +87,12 @@ pub const CpuCore = struct {
             0x60 => {
                 const reg = op_code[0] & 0x0F;
                 print(" --- LD V{}, 0x{X:0>3} --- val: {}", .{ reg, op_code[1], op_code[1] });
+                LD(&self.registers[reg], op_code[1]);
             },
             0x70 => {
                 const reg = op_code[0] & 0x0F;
                 print(" --- ADD V{}, 0x{X:0>3} --- val: {}", .{ reg, op_code[1], op_code[1] });
+                ADD(&self.registers[reg], op_code[1]);
             },
             0x80 => {
                 const reg1 = op_code[0] & 0x0F;
@@ -93,6 +101,7 @@ pub const CpuCore = struct {
                 switch (last_nib) {
                     0x00 => {
                         print(" --- LD V{}, V{} --- ", .{ reg1, reg2 });
+                        LD(&self.registers[reg1], self.registers[reg2]);
                     },
                     0x01 => {
                         print(" --- OR V{}, V{} --- ", .{ reg1, reg2 });
@@ -129,6 +138,7 @@ pub const CpuCore = struct {
                 const last_nib = op_code[1] & 0x0F;
                 if (last_nib == 0x00) {
                     print(" --- SNE V{}, V{}", .{ reg1, reg2 });
+                    self.SNE(self.registers[reg1], self.registers[reg2]);
                 } else {
                     print(" --- NOOP --- {b:0>16}", .{instr});
                 }
@@ -221,7 +231,7 @@ pub const CpuCore = struct {
         // TODO stack pointer
     }
 
-    fn JMP(self: *CpuCore, addr: u8) void {
+    fn JMP(self: *CpuCore, addr: u16) void {
         self.program_counter = addr;
     }
 
@@ -243,11 +253,11 @@ pub const CpuCore = struct {
     }
 
     fn LD(a: *u8, b: u8) void {
-        a = b;
+        a.* = b;
     }
 
     fn ADD(a: *u8, b: u8) void {
-        a +|= b;
+        a.* +|= b;
     }
 
     fn OR(a: *u8, b: u8) void {
