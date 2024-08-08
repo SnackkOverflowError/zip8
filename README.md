@@ -12,7 +12,13 @@ Through *Test Driven Development* I have confirmed that the following instructio
  - 6xkk - LD Vx, byte
  - 7xkk - ADD Vx, byte
  - 8xy0 - LD Vx, Vy
+ - 8xy1 - OR Vx, Vy
+ - 8xy2 - AND Vx, Vy
+ - 8xy3 - XOR Vx, Vy
  - 8xy4 - ADD Vx, Vy
+ - 8xy5 - SUB Vx, Vy
+ - 8xy6 - SHR Vx {, Vy}
+ - 8xyE - SHL Vx {, Vy}
  - 9xy0 - SNE Vx, Vy
 
 ## what is left? 
@@ -20,13 +26,7 @@ Through *Test Driven Development* I have confirmed that the following instructio
  - 00EE - RET
  - 0nnn - SYS addr
  - 2nnn - CALL addr
- - 8xy1 - OR Vx, Vy
- - 8xy2 - AND Vx, Vy
- - 8xy3 - XOR Vx, Vy
- - 8xy5 - SUB Vx, Vy
- - 8xy6 - SHR Vx {, Vy}
  - 8xy7 - SUBN Vx, Vy
- - 8xyE - SHL Vx {, Vy}
  - Annn - LD I, addr
  - Bnnn - JP V0, addr
  - Cxkk - RND Vx, byte

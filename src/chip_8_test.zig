@@ -11,7 +11,6 @@ test "test DRAW and CLS" {}
 // test jumping to a specific mem location
 test "test JP" {
     var cpu: CpuCore = .{};
-
     const mem: []const u8 = &.{ 0x14, 0x20 };
 
     cpu.loadROM(mem);
@@ -190,4 +189,208 @@ test "test ADD - 1 register" {
     // ensure that ADD worked as expected
     try std.testing.expect(cpu.registers[0] == 0x10);
     std.debug.print("test ADD SUCCEEDED --------------------------\n", .{});
+}
+
+test "test ADD - 2 registers" {
+    var cpu: CpuCore = .{};
+
+    const mem: []const u8 = &.{
+        0x60, 0x21, // load 0x21 into r0 -- 0x200
+        0x61, 0x01, // load 0x01 into r0 -- 0x200
+        0x81, 0x04, // r1 += r0 -- 0x202
+    };
+    cpu.loadROM(mem);
+
+    // this should execute the first op code: LD
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x202);
+    // this should execute the second op code: LD
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x204);
+    // this should execute the third op code: ADD
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x206);
+
+    // TODO test for overflow
+
+    // ensure that ADD worked as expected
+    try std.testing.expect(cpu.registers[0] == 0x21);
+    // ensure that ADD worked as expected
+    try std.testing.expect(cpu.registers[1] == 0x22);
+    std.debug.print("test ADD - 2 registers SUCCEEDED --------------------------\n", .{});
+}
+
+test "test SUB - 2 registers" {
+    var cpu: CpuCore = .{};
+
+    const mem: []const u8 = &.{
+        0x60, 0x22, // load into r0 -- 0x200
+        0x61, 0x21, // load into r1 -- 0x202
+        0x81, 0x05, // r1 -= r0 -- 0x204
+    };
+    cpu.loadROM(mem);
+
+    // this should execute the first op code: LD
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x202);
+    // this should execute the second op code: LD
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x204);
+    // this should execute the third op code: AND
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x206);
+
+    // TODO test for underflow
+
+    // ensure that LD worked as expected
+    try std.testing.expect(cpu.registers[0] == 0x22);
+    // ensure that AND worked as expected
+    try std.testing.expect(cpu.registers[1] == 0x00);
+    std.debug.print("test SUB - 2 registers SUCCEEDED --------------------------\n", .{});
+}
+
+test "test OR - 2 registers" {
+    var cpu: CpuCore = .{};
+
+    const mem: []const u8 = &.{
+        0x60, 0b10101010, // load 0x21 into r0 -- 0x200
+        0x61, 0b01010101, // load 0x21 into r0 -- 0x200
+        0x81, 0x01, // r1 |= r0 -- 0x202
+    };
+    cpu.loadROM(mem);
+
+    // this should execute the first op code: LD
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x202);
+    // this should execute the second op code: LD
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x204);
+    // this should execute the third op code: AND
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x206);
+
+    // ensure that LD worked as expected
+    try std.testing.expect(cpu.registers[0] == 0b10101010);
+    // ensure that OR worked as expected
+    try std.testing.expect(cpu.registers[1] == 0xFF);
+    std.debug.print("test OR - 2 registers SUCCEEDED --------------------------\n", .{});
+}
+
+test "test AND - 2 registers" {
+    var cpu: CpuCore = .{};
+
+    const mem: []const u8 = &.{
+        0x60, 0b10101011, // load into r0 -- 0x200
+        0x61, 0b01010101, // load into r0 -- 0x202
+        0x81, 0x02, // r1 &= r0 -- 0x204
+    };
+    cpu.loadROM(mem);
+
+    // this should execute the first op code: LD
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x202);
+    // this should execute the second op code: LD
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x204);
+    // this should execute the third op code: AND
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x206);
+
+    // ensure that LD worked as expected
+    try std.testing.expect(cpu.registers[0] == 0b10101011);
+    // ensure that AND worked as expected
+    try std.testing.expect(cpu.registers[1] == 0x01);
+    std.debug.print("test AND - 2 registers SUCCEEDED --------------------------\n", .{});
+}
+
+test "test XOR - 2 registers" {
+    var cpu: CpuCore = .{};
+
+    const mem: []const u8 = &.{
+        0x60, 0b10101011, // load into r0 -- 0x200
+        0x61, 0b01010101, // load into r1 -- 0x202
+        0x81, 0x03, // r1 ^= r0 -- 0x204
+    };
+    cpu.loadROM(mem);
+
+    // this should execute the first op code: LD
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x202);
+    // this should execute the second op code: LD
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x204);
+    // this should execute the third op code: XOR
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x206);
+
+    // ensure that LD worked as expected
+    try std.testing.expect(cpu.registers[0] == 0b10101011);
+    // ensure that AND worked as expected
+    try std.testing.expect(cpu.registers[1] == 0b11111110);
+    std.debug.print("test XOR - 2 registers SUCCEEDED --------------------------\n", .{});
+}
+
+test "test SHR - 1 register" {
+    var cpu: CpuCore = .{};
+
+    const mem: []const u8 = &.{
+        0x61, 0b10010001, // load into r1 -- 0x200
+        0x81, 0x06, // r1 SHR 1 -- 0x202
+        0x81, 0x06, // r1 SHR 1 -- 0x204
+    };
+    cpu.loadROM(mem);
+
+    // this should execute the first op code: LD
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x202);
+    try std.testing.expect(cpu.registers[1] == 0b10010001);
+
+    // this should execute the second op code: SHR
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x204);
+
+    // ensure that SHR worked as expected
+    try std.testing.expect(cpu.registers[1] == 0b01001000);
+    try std.testing.expect(cpu.registers[0xF] == 0x1);
+
+    // execute the second SHR
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x206);
+
+    // ensure that SHR worked as expected
+    try std.testing.expect(cpu.registers[1] == 0b00100100);
+    try std.testing.expect(cpu.registers[0xF] == 0x0);
+
+    std.debug.print("test SHR - 1 register SUCCEEDED --------------------------\n", .{});
+}
+
+test "test SHL - 1 register" {
+    var cpu: CpuCore = .{};
+
+    const mem: []const u8 = &.{
+        0x61, 0b01001001, // load into r1 -- 0x202
+        0x81, 0x0E, // r1 SHL 1 -- 0x204
+        0x81, 0x0E, // r1 SHL 1 -- 0x206
+    };
+    cpu.loadROM(mem);
+
+    // this should execute the first op code: LD
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x202);
+    // ensure that LD worked as expected
+    try std.testing.expect(cpu.registers[1] == 0b01001001);
+    // this should execute the third op code: AND
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x204);
+
+    try std.testing.expect(cpu.registers[1] == 0b10010010);
+    try std.testing.expect(cpu.registers[0xF] == 0x0);
+
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x206);
+
+    try std.testing.expect(cpu.registers[1] == 0b00100100);
+    try std.testing.expect(cpu.registers[0xF] == 0x01);
+
+    std.debug.print("test SHL - 1 register SUCCEEDED --------------------------\n", .{});
 }

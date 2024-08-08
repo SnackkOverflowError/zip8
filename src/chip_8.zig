@@ -105,27 +105,34 @@ pub const CpuCore = struct {
                     },
                     0x01 => {
                         print(" --- OR V{}, V{} --- ", .{ reg1, reg2 });
+                        OR(&self.registers[reg1], self.registers[reg2]);
                     },
                     0x02 => {
                         print(" --- AND V{}, V{} --- ", .{ reg1, reg2 });
+                        AND(&self.registers[reg1], self.registers[reg2]);
                     },
                     0x03 => {
                         print(" --- XOR V{}, V{} --- ", .{ reg1, reg2 });
+                        XOR(&self.registers[reg1], self.registers[reg2]);
                     },
                     0x04 => {
                         print(" --- ADD V{}, V{} --- ", .{ reg1, reg2 });
+                        self.ADDC(&self.registers[reg1], self.registers[reg2]);
                     },
                     0x05 => {
                         print(" --- SUB V{}, V{} --- ", .{ reg1, reg2 });
+                        self.SUBC(&self.registers[reg1], self.registers[reg2]);
                     },
                     0x06 => {
                         print(" --- SHR V{}, V{} --- ", .{ reg1, reg2 });
+                        self.SHR(&self.registers[reg1]);
                     },
                     0x07 => {
                         print(" --- SUBN V{}, V{} --- ", .{ reg1, reg2 });
                     },
                     0x0E => {
                         print(" --- SHL V{}, V{} --- ", .{ reg1, reg2 });
+                        self.SHL(&self.registers[reg1]);
                     },
                     else => {
                         print(" --- NOOP --- {b:0>16}", .{instr});
@@ -261,52 +268,52 @@ pub const CpuCore = struct {
     }
 
     fn OR(a: *u8, b: u8) void {
-        a |= b;
+        a.* |= b;
     }
 
     fn AND(a: *u8, b: u8) void {
-        a &= b;
+        a.* &= b;
     }
 
     fn XOR(a: *u8, b: u8) void {
-        a ^= b;
+        a.* ^= b;
     }
 
     // ADD with carry
     fn ADDC(self: *CpuCore, a: *u8, b: u8) void {
-        if (a + b > 255) {
+        if (a.* + b > 0xFF) {
             self.registers[0x0F] = 0x1;
         } else {
             self.registers[0x0F] = 0x0;
         }
-        a +|= b;
+        a.* +|= b;
     }
 
     fn SUBC(self: *CpuCore, a: *u8, b: u8) void {
-        if (a > b) {
+        if (a.* > b) {
             self.registers[0x0F] = 0x1;
         } else {
             self.registers[0x0F] = 0x0;
         }
-        a -|= b;
+        a.* -|= b;
     }
 
     fn SHR(self: *CpuCore, a: *u8) void {
-        if (a & 0x1 == 0x1) {
+        if (a.* & 0x1 == 0x1) {
             self.registers[0x0F] = 0x1;
         } else {
             self.registers[0x0F] = 0x0;
         }
-        a = a >> 1;
+        a.* = a.* >> 1;
     }
 
     fn SHL(self: *CpuCore, a: *u8) void {
-        if (a & 0x80 == 0x80) {
+        if (a.* & 0x80 == 0x80) {
             self.registers[0x0F] = 0x1;
         } else {
             self.registers[0x0F] = 0x0;
         }
-        a = a >> 1;
+        a.* = a.* << 1;
     }
 };
 
