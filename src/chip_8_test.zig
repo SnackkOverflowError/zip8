@@ -394,3 +394,71 @@ test "test SHL - 1 register" {
 
     std.debug.print("test SHL - 1 register SUCCEEDED --------------------------\n", .{});
 }
+
+test "test LD - I, addr" {
+    var cpu: CpuCore = .{};
+
+    const mem: []const u8 = &.{
+        0xA1, 0x02, // load into I -- 0x200
+    };
+    cpu.loadROM(mem);
+
+    // this should execute the first op code: LD
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x202);
+    try std.testing.expect(cpu.I == 0x102);
+
+    std.debug.print("test LD - I, addr  SUCCEEDED --------------------------\n", .{});
+}
+
+test "test JP - V0, addr" {
+    var cpu: CpuCore = .{};
+
+    const mem: []const u8 = &.{
+        0x60, 0x06, // load 2 into V0 - 0x200
+        0xB2, 0x00, // JP V0 + 0x200 -- 0x202
+        0x61, 0x69, // LD 0x69 into V1 -- 0x204
+        0x61, 0x42, // LD 0x42 into V1 -- 0x206
+    };
+    cpu.loadROM(mem);
+
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x202);
+    try std.testing.expect(cpu.registers[0] == 0x06);
+
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x206);
+
+    try cpu.cycle();
+    try std.testing.expect(cpu.registers[1] == 0x42);
+
+    std.debug.print("test JP - V0, addr  SUCCEEDED --------------------------\n", .{});
+}
+
+test "test RND - VX, byte" {
+    var cpu: CpuCore = .{};
+
+    const mem: []const u8 = &.{
+        0xC0, 0xFF, // RND -- 0x200
+        0xC0, 0xFF, // RND -- 0x200
+        0xC0, 0x00, // RND -- 0x200
+    };
+    cpu.loadROM(mem);
+
+    // this should execute the first op code: RND
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x202);
+    const reg_0_og: u8 = cpu.registers[0];
+
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x204);
+
+    try std.testing.expect(cpu.registers[0] != reg_0_og);
+
+    try cpu.cycle();
+    try std.testing.expect(cpu.program_counter == 0x206);
+
+    try std.testing.expect(cpu.registers[0] != 0x00);
+
+    std.debug.print("test RND - VX, byte  SUCCEEDED --------------------------\n", .{});
+}
