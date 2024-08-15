@@ -32,12 +32,9 @@ pub const CpuCore = struct {
     stack_pointer: u8 = 0,
     keys: u16 = 0,
 
-    screen_buffer: [4][8]u8 = [_][8]u8{
+    screen_buffer: [32][8]u8 = [_][8]u8{
         [_]u8{0} ** 8,
-        [_]u8{0} ** 8,
-        [_]u8{0} ** 8,
-        [_]u8{0} ** 8,
-    },
+    } ** 32,
 
     memory: [4096]u8 = [_]u8{0} ** 4096,
 
@@ -201,7 +198,7 @@ pub const CpuCore = struct {
                 const reg2 = (op_code[1] & 0xF0) >> 4;
                 const last_nib = op_code[1] & 0x0F;
                 print(" --- DRW V{}, V{}, {} --- ", .{ reg1, reg2, last_nib });
-                self.DRW()
+                //self.DRW();
             },
             0xE0 => {
                 const reg1 = op_code[0] & 0x0F;
@@ -246,7 +243,7 @@ pub const CpuCore = struct {
                     },
                     0x29 => {
                         print(" --- LD F, V{} --- ", .{reg1});
-                        //TODO fonts
+                        self.SET_SPRITE(self.registers[reg1]);
                     },
                     0x33 => {
                         print(" --- LD B, V{} --- ", .{reg1});
@@ -329,9 +326,26 @@ pub const CpuCore = struct {
     }
 
     fn DRW(self: *CpuCore, x: u8, y: u8, n: u8) void {
+        const offset: u8 = x % 8;
+        const x_pos: u8 = x / 8;
+        var i: u8 = 0;
+        while (i < n) {
+            // transform the byte at I into two bytes using the offset
+            const first_byte: u8 = self.memory[self.I] >> offset;
+            const second_byte: u8 = self.memory[self.I] << offset;
+
+            self.screen_buffer[y][x_pos] ^= first_byte;
+            self.screen_buffer[y][x_pos + 1] ^= second_byte;
+            // TODO detect collisions
+
+            i += 1;
+        }
     }
 
     fn SET_SPRITE(self: *CpuCore, a: u8) void {
+        if (a <= 0xF) {
+            self.I = a * 4;
+        }
     }
 
     fn BCD(self: *CpuCore, val: u8) void {
