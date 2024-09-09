@@ -1,7 +1,10 @@
 const std = @import("std");
 const vaxis = @import("vaxis");
+const CPU = @import("chip_8.zig").CpuCore;
 
 pub const panic = vaxis.panic_handler;
+
+const MAX_PERIOD_NS = 16666666;
 
 /// Set some scope levels for the vaxis scopes
 pub const std_options: std.Options = .{
@@ -16,15 +19,14 @@ pub const std_options: std.Options = .{
 const Event = union(enum) {
     key_press: vaxis.Key,
     key_release: vaxis.Key,
-    focus_in, // window has gained focus
-    focus_out, // window has lost focus
-    paste_start, // bracketed paste start
-    paste_end, // bracketed paste end
-    paste: []const u8, // osc 52 paste, caller must free
-    color_report: vaxis.Color.Report, // osc 4, 10, 11, 12 response
-    color_scheme: vaxis.Color.Scheme, // light / dark OS theme changes
-    winsize: vaxis.Winsize, // the window size has changed. This event is always sent when the loop
-    // is started
+    focus_in,
+    focus_out,
+    paste_start,
+    paste_end, 
+    paste: []const u8, 
+    color_report: vaxis.Color.Report, 
+    color_scheme: vaxis.Color.Scheme, 
+    winsize: vaxis.Winsize, 
 };
 
 pub const App = struct {
@@ -32,13 +34,22 @@ pub const App = struct {
     should_quit: bool,
     tty: vaxis.Tty,
     vx: vaxis.Vaxis,
+    ontime: bool,
+    timer: std.time.Timer,
+    pause: bool,
+    step: bool,
+    cpu: CPU,
 
-    pub fn init(allocator: std.mem.Allocator) !App {
+    pub fn init(allocator: std.mem.Allocator, cpu: CPU) !App {
         return .{
             .allocator = allocator,
             .should_quit = false,
             .tty = try vaxis.Tty.init(),
             .vx = try vaxis.init(allocator, .{}),
+            .ontime = true,
+            .timer = try std.time.Timer.start(),
+            .pause = false,
+            .cpu = cpu,
         };
     }
 
@@ -57,36 +68,48 @@ pub const App = struct {
         try loop.start();
         defer loop.stop();
 
+        // takes the full terminal screen
         try self.vx.enterAltScreen(self.tty.anyWriter());
 
         try self.vx.queryTerminal(self.tty.anyWriter(), 1 * std.time.ns_per_s);
 
         while (!self.should_quit) {
-            // this is blocking
+            self.timer.reset();
             loop.pollEvent();
-            // tryEvent returns events until the queue is empty
             while (loop.tryEvent()) |event| {
                 try self.update(event);
             }
-            self.draw();
 
-            // It's best to use a buffered writer for the render method. TTY provides one, but you
-            // may use your own. The provided bufferedWriter has a buffer size of 4096
+            if(!self.pause) {
+                self.cpu.cycle();
+            } else {
+                if(self.step) {
+                    self.cpu.cycle();
+                    self.step = false;
+                }
+            }
+
+            self.draw();
+            const exec_time: u64 = self.timer.read();
+            self.ontime = MAX_PERIOD_NS > exec_time;
+
+            if (self.ontime)
+                std.time.sleep(MAX_PERIOD_NS - exec_time);
+
             var buffered = self.tty.bufferedWriter();
-            // Render the application to the screen
             try self.vx.render(buffered.writer().any());
             try buffered.flush();
         }
     }
 
-    /// Update our application state from an event
     pub fn update(self: *App, event: Event) !void {
         switch (event) {
             .key_press => |key| {
-                // key.matches does some basic matching algorithms. Key matching can be complex in
-                // the presence of kitty keyboard encodings, this will generally be a good approach.
-                // There are other matching functions available for specific purposes, as well
                 if (key.matches('c', .{ .ctrl = true }))
+                    self.should_quit = true;
+                if (key.matches('p', .{}))
+                    self.pause = true;
+                if (key.matches('s', .{ .ctrl = true }))
                     self.should_quit = true;
             },
             .winsize => |ws| try self.vx.resize(self.allocator, self.tty.anyWriter(), ws),
@@ -94,31 +117,94 @@ pub const App = struct {
         }
     }
 
-    /// Draw our current state
     pub fn draw(self: *App) void {
-        const msg = "Hello, world!";
-
-        // Window is a bounded area with a view to the screen. You cannot draw outside of a windows
-        // bounds. They are light structures, not intended to be stored.
         const win = self.vx.window();
-
-        // Clearing the window has the effect of setting each cell to it's "default" state. Vaxis
-        // applications typically will be immediate mode, and you will redraw your entire
-        // application during the draw cycle.
         win.clear();
 
-        const child = win.child(.{
-            .x_off = (win.width / 2) - 7,
-            .y_off = win.height / 2 + 1,
-            .width = .{ .limit = msg.len },
-            .height = .{ .limit = 1 },
+        var mw_height: usize = 0;
+        var mw_width: usize = 0;
+
+        var d_offset_x: usize = 0;
+        var d_offset_y: usize = 0;
+        var d_height: usize = 0;
+        var d_width: usize = 0;
+
+        if (win.width > 4 * win.height) {
+            mw_height = win.height;
+            mw_width = win.height * 4;
+
+            d_offset_x = mw_width;
+            d_height = win.height;
+            d_width = win.width - mw_width;
+        } else {
+            mw_width = win.width;
+            mw_height = win.width / 4;
+
+            d_offset_y = mw_height;
+            d_height = win.height - mw_height;
+            d_width = win.width;
+        }
+
+        const mainWindow = win.child(.{
+            .width = .{ .limit = mw_width },
+            .height = .{ .limit = mw_height },
+            .border = .{ .where = .all },
+        });
+        const debugWindow = win.child(.{
+            .x_off = d_offset_x,
+            .y_off = d_offset_y,
+            .width = .{ .limit = d_width },
+            .height = .{ .limit = d_height },
+            .border = .{ .where = .all },
         });
 
         const style: vaxis.Style = .{};
 
-        // Print a text segment to the screen. This is a helper function which iterates over the
-        // text field for graphemes. Alternatively, you can implement your own print functions and
-        // use the writeCell API.
-        _ = try child.printSegment(.{ .text = msg, .style = style }, .{});
+        if (mw_width < 64 * 2 or mw_height < 32) {
+            _ = try mainWindow.printSegment(.{ .text = "Main Window - too small to display program", .style = style }, .{});
+            _ = try debugWindow.printSegment(.{ .text = "Debug Window", .style = style }, .{});
+            return;
+        }
+
+        draw_chip8_screen(screen_buffer, mainWindow);
+
+        // NOTE this will be removed soon
+        // _ = try mainWindow.printSegment(.{ .text = "Main Window", .style = style }, .{});
+        _ = try debugWindow.printSegment(.{ .text = "Debug Window", .style = style }, .{});
+    }
+
+    fn draw_chip8_screen(screen_buffer: [32][8]u8, win: vaxis.Window) void {
+        var y: usize = 0;
+
+        while (y < screen_buffer.len) {
+            const row = screen_buffer[y];
+            var x: usize = 0;
+            while (x < row.len) {
+                draw_byte(row[x], win, y, x);
+                x += 1;
+            }
+            y += 1;
+        }
+    }
+
+    fn draw_byte(byte: u8, win: vaxis.Window, row: usize, col: usize) void {
+        const filled_cell: vaxis.Cell = .{ .char = .{ .grapheme = "█" } };
+        const empty_cell: vaxis.Cell = .{ .char = .{ .grapheme = " " } };
+
+        var i: usize = 0;
+        var mask: u8 = 0b10000000;
+        while (i < 8) {
+            //std.debug.print("looping through byte: {d}, {b}", .{ i, mask });
+            if (byte & mask == mask) {
+                win.writeCell((col * 16) + (i * 2), row, filled_cell);
+                win.writeCell((col * 16) + (i * 2) + 1, row, filled_cell);
+            } else {
+                win.writeCell((col * 16) + (i * 2), row, empty_cell);
+                win.writeCell((col * 16) + (i * 2) + 1, row, empty_cell);
+            }
+
+            mask = mask >> 1;
+            i += 1;
+        }
     }
 };

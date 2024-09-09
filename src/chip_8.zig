@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const print = std.debug.print;
+const bufPrint = std.fmt.bufPrint;
 var prng = std.rand.DefaultPrng.init(42);
 
 const sprites: [80]u8 = [_]u8{
@@ -31,6 +32,7 @@ pub const CpuCore = struct {
     stack: [16]u16 = [_]u8{0} ** 16,
     stack_pointer: u8 = 0,
     keys: u16 = 0,
+    instr_desc: [16]u8 = "CALL V8, V7, 45",
 
     screen_buffer: [32][8]u8 = [_][8]u8{
         [_]u8{0} ** 8,
@@ -401,6 +403,23 @@ pub const CpuCore = struct {
 
     fn AND(a: *u8, b: u8) void {
         a.* &= b;
+    }
+
+    fn drawScreenBufferDebug(buf: [][]u8) void {
+        var i: u8 = 0;
+        for (buf) |line| {
+            print("line {d:0>2}: ", .{i});
+            for (line) |byte| {
+                var j: u8 = 7;
+                while (j > -1) {
+                    const bit = if (byte & (1 << j) != 0) "X" else " ";
+                    print("{s}", .{bit});
+                    j -= 1;
+                }
+            }
+            print("\n");
+            i += 1;
+        }
     }
 
     fn XOR(a: *u8, b: u8) void {
