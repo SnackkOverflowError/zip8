@@ -300,13 +300,15 @@ pub const CpuCore = struct {
     }
 
     fn SKP(self: *CpuCore, b: u8) void {
-        if (self.keys & (1 << b) != 0) {
+        const mask: u16 = 1;
+        if (self.keys & (mask << @truncate(b)) != 0) {
             self.program_counter += 2;
         }
     }
 
     fn SKNP(self: *CpuCore, b: u8) void {
-        if (self.keys & (1 << b) == 0) {
+        const mask: u16 = 1;
+        if (self.keys & (mask << @truncate(b)) == 0) {
             self.program_counter += 2;
         }
     }
