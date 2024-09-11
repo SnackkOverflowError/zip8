@@ -6,6 +6,9 @@ pub const panic = vaxis.panic_handler;
 
 const MAX_PERIOD_NS = 16666666;
 
+// keybinds from 1-9, A-F, 0
+const KEY_BINDS: [16]u8 = .{ '6', '7', '8', 'y', 'u', 'i', 'h', 'j', 'k', 'n', ',', '9', 'o', 'l', '.', 'm' };
+
 /// Set some scope levels for the vaxis scopes
 pub const std_options: std.Options = .{
     .log_scope_levels = &.{
@@ -22,11 +25,11 @@ const Event = union(enum) {
     focus_in,
     focus_out,
     paste_start,
-    paste_end, 
-    paste: []const u8, 
-    color_report: vaxis.Color.Report, 
-    color_scheme: vaxis.Color.Scheme, 
-    winsize: vaxis.Winsize, 
+    paste_end,
+    paste: []const u8,
+    color_report: vaxis.Color.Report,
+    color_scheme: vaxis.Color.Scheme,
+    winsize: vaxis.Winsize,
 };
 
 pub const App = struct {
@@ -49,6 +52,7 @@ pub const App = struct {
             .ontime = true,
             .timer = try std.time.Timer.start(),
             .pause = false,
+            .step = false,
             .cpu = cpu,
         };
     }
@@ -80,11 +84,11 @@ pub const App = struct {
                 try self.update(event);
             }
 
-            if(!self.pause) {
-                self.cpu.cycle();
+            if (!self.pause) {
+                try self.cpu.cycle();
             } else {
-                if(self.step) {
-                    self.cpu.cycle();
+                if (self.step) {
+                    try self.cpu.cycle();
                     self.step = false;
                 }
             }
@@ -110,7 +114,21 @@ pub const App = struct {
                 if (key.matches('p', .{}))
                     self.pause = true;
                 if (key.matches('s', .{ .ctrl = true }))
-                    self.should_quit = true;
+                    self.step = true;
+
+                // keypad
+                // 1 2 3 C
+                // 4 5 6 D
+                // 7 8 9 E
+                // A 0 B F
+
+                self.cpu.keys = 0;
+                var mask: u16 = 1;
+                for (KEY_BINDS) |bind| {
+                    if (key.matches(bind, .{}))
+                        self.cpu.keys |= mask;
+                    mask = mask << 1;
+                }
             },
             .winsize => |ws| try self.vx.resize(self.allocator, self.tty.anyWriter(), ws),
             else => {},
@@ -166,7 +184,7 @@ pub const App = struct {
             return;
         }
 
-        draw_chip8_screen(screen_buffer, mainWindow);
+        draw_chip8_screen(self.cpu.screen_buffer, mainWindow);
 
         // NOTE this will be removed soon
         // _ = try mainWindow.printSegment(.{ .text = "Main Window", .style = style }, .{});
