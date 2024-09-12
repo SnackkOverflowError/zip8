@@ -2,6 +2,8 @@ const std = @import("std");
 const vaxis = @import("vaxis");
 const CPU = @import("chip_8.zig").CpuCore;
 
+const bufPrint = std.fmt.bufPrint;
+
 pub const panic = vaxis.panic_handler;
 
 const MAX_PERIOD_NS = 16666666;
@@ -185,10 +187,9 @@ pub const App = struct {
         }
 
         draw_chip8_screen(self.cpu.screen_buffer, mainWindow);
+        self.draw_debug_screen(debugWindow);
 
         // NOTE this will be removed soon
-        // _ = try mainWindow.printSegment(.{ .text = "Main Window", .style = style }, .{});
-        _ = try debugWindow.printSegment(.{ .text = "Debug Window", .style = style }, .{});
     }
 
     fn draw_chip8_screen(screen_buffer: [32][8]u8, win: vaxis.Window) void {
@@ -224,5 +225,19 @@ pub const App = struct {
             mask = mask >> 1;
             i += 1;
         }
+    }
+
+    fn draw_debug_screen(self: *App, win: vaxis.Window) void {
+        var msg = [_]u8{0} ** 128;
+        _ = try win.printSegment(.{ .text = "Debug Window" }, .{});
+
+        _ = try bufPrint(&msg, "Pause: {s}", .{"test"});
+        _ = try win.printSegment(.{ .text = msg }, .{ .row_offset = 1 });
+
+        _ = try bufPrint(&msg, "raw instr: {any}", .{self.cpu.curr_instr_raw});
+        _ = try win.printSegment(.{ .text = msg }, .{ .row_offset = 0, .col_offset = 50 });
+
+        _ = try bufPrint(&msg, "instr: {any}", .{self.cpu.instr_desc});
+        _ = try win.printSegment(.{ .text = msg }, .{ .row_offset = 1, .col_offset = 50 });
     }
 };

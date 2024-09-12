@@ -60,7 +60,7 @@ pub const CpuCore = struct {
     }
 
     fn processInstruction(self: *CpuCore, op_code: [2]u8) !void {
-        _ = try bufPrint(&self.curr_instr_raw, "hex: 0x{X:0>2}{X:0>2}", .{ op_code[0], op_code[1] });
+        _ = try bufPrint(&self.curr_instr_raw, "0x{X:0>2}{X:0>2}", .{ op_code[0], op_code[1] });
 
         const first_nib = op_code[0] & 0b11110000;
         const instr: u16 = combineOpCode(op_code);
@@ -69,38 +69,37 @@ pub const CpuCore = struct {
             0x00 => {
                 switch (instr) {
                     0x00E0 => {
-                        _ = try bufPrint(&self.instr_desc, " --- CLS  --- ", .{});
+                        _ = try bufPrint(&self.instr_desc, "CLS", .{});
                         self.CLS();
                     },
                     0x00EE => {
-                        _ = try bufPrint(&self.instr_desc, " --- RET  --- ", .{});
+                        _ = try bufPrint(&self.instr_desc, "RET", .{});
                         self.RET();
                     },
                     else => {
                         const addr = instr & 0x0FFF;
-                        _ = try bufPrint(&self.instr_desc, " --- SYS 0x{X:0>3}  --- addr: {d:0>4} --- {b:0>16}", .{ addr, addr, instr });
-                        //print(" --- NO OP ---");
+                        _ = try bufPrint(&self.instr_desc, "SYS 0x{X:0>3}", .{addr});
                     },
                 }
             },
             0x10 => {
                 const addr: u16 = combineOpCode(op_code) & 0x0FFF;
-                _ = try bufPrint(&self.instr_desc, " --- JMP 0x{X:0>3} --- addr: {}", .{ addr, addr });
+                _ = try bufPrint(&self.instr_desc, "JMP 0x{X:0>3}", .{addr});
                 self.JMP(addr);
             },
             0x20 => {
                 const addr: u16 = combineOpCode(op_code) & 0x0FFF;
-                _ = try bufPrint(&self.instr_desc, " --- CALL 0x{X:0>3} --- addr: {}", .{ addr, addr });
+                _ = try bufPrint(&self.instr_desc, "CALL 0x{X:0>3}", .{addr});
                 self.CALL(addr);
             },
             0x30 => {
                 const reg = op_code[0] & 0x0F;
-                _ = try bufPrint(&self.instr_desc, " --- SE V{}, 0x{X:0>3} --- val: {}", .{ reg, op_code[1], op_code[1] });
+                _ = try bufPrint(&self.instr_desc, "SE V{}, 0x{X:0>3}", .{ reg, op_code[1] });
                 self.SE(self.registers[reg], op_code[1]);
             },
             0x40 => {
                 const reg = op_code[0] & 0x0F;
-                _ = try bufPrint(&self.instr_desc, " --- SNE V{}, 0x{X:0>3} --- val: {}", .{ reg, op_code[1], op_code[1] });
+                _ = try bufPrint(&self.instr_desc, "SNE V{}, 0x{X:0>3}", .{ reg, op_code[1] });
                 self.SNE(self.registers[reg], op_code[1]);
             },
             0x50 => {
@@ -108,20 +107,20 @@ pub const CpuCore = struct {
                 const reg2 = (op_code[1] & 0xF0) >> 4;
                 const last_nib = op_code[1] & 0x0F;
                 if (last_nib == 0x00) {
-                    _ = try bufPrint(&self.instr_desc, " --- SE V{}, V{}", .{ reg1, reg2 });
+                    _ = try bufPrint(&self.instr_desc, "SE V{}, V{}", .{ reg1, reg2 });
                     self.SE(self.registers[reg1], self.registers[reg2]);
                 } else {
-                    _ = try bufPrint(&self.instr_desc, " --- NOOP --- {b:0>16}", .{instr});
+                    _ = try bufPrint(&self.instr_desc, "NOOP", .{});
                 }
             },
             0x60 => {
                 const reg = op_code[0] & 0x0F;
-                _ = try bufPrint(&self.instr_desc, " --- LD V{}, 0x{X:0>3} --- val: {}", .{ reg, op_code[1], op_code[1] });
+                _ = try bufPrint(&self.instr_desc, "LD V{}, 0x{X:0>3}", .{ reg, op_code[1] });
                 LD(&self.registers[reg], op_code[1]);
             },
             0x70 => {
                 const reg = op_code[0] & 0x0F;
-                _ = try bufPrint(&self.instr_desc, " --- ADD V{}, 0x{X:0>3} --- val: {}", .{ reg, op_code[1], op_code[1] });
+                _ = try bufPrint(&self.instr_desc, "ADD V{}, 0x{X:0>3}", .{ reg, op_code[1] });
                 ADD(&self.registers[reg], op_code[1]);
             },
             0x80 => {
@@ -130,43 +129,43 @@ pub const CpuCore = struct {
                 const last_nib = op_code[1] & 0x0F;
                 switch (last_nib) {
                     0x00 => {
-                        _ = try bufPrint(&self.instr_desc, " --- LD V{}, V{} --- ", .{ reg1, reg2 });
+                        _ = try bufPrint(&self.instr_desc, "LD V{}, V{}", .{ reg1, reg2 });
                         LD(&self.registers[reg1], self.registers[reg2]);
                     },
                     0x01 => {
-                        _ = try bufPrint(&self.instr_desc, " --- OR V{}, V{} --- ", .{ reg1, reg2 });
+                        _ = try bufPrint(&self.instr_desc, "OR V{}, V{}", .{ reg1, reg2 });
                         OR(&self.registers[reg1], self.registers[reg2]);
                     },
                     0x02 => {
-                        _ = try bufPrint(&self.instr_desc, " --- AND V{}, V{} --- ", .{ reg1, reg2 });
+                        _ = try bufPrint(&self.instr_desc, "AND V{}, V{}", .{ reg1, reg2 });
                         AND(&self.registers[reg1], self.registers[reg2]);
                     },
                     0x03 => {
-                        _ = try bufPrint(&self.instr_desc, " --- XOR V{}, V{} --- ", .{ reg1, reg2 });
+                        _ = try bufPrint(&self.instr_desc, "XOR V{}, V{}", .{ reg1, reg2 });
                         XOR(&self.registers[reg1], self.registers[reg2]);
                     },
                     0x04 => {
-                        _ = try bufPrint(&self.instr_desc, " --- ADD V{}, V{} --- ", .{ reg1, reg2 });
+                        _ = try bufPrint(&self.instr_desc, "ADD V{}, V{}", .{ reg1, reg2 });
                         self.ADDC(&self.registers[reg1], self.registers[reg2]);
                     },
                     0x05 => {
-                        _ = try bufPrint(&self.instr_desc, " --- SUB V{}, V{} --- ", .{ reg1, reg2 });
+                        _ = try bufPrint(&self.instr_desc, "SUB V{}, V{}", .{ reg1, reg2 });
                         self.SUBC(&self.registers[reg1], self.registers[reg2]);
                     },
                     0x06 => {
-                        _ = try bufPrint(&self.instr_desc, " --- SHR V{}, V{} --- ", .{ reg1, reg2 });
+                        _ = try bufPrint(&self.instr_desc, "SHR V{}, V{}", .{ reg1, reg2 });
                         self.SHR(&self.registers[reg1]);
                     },
                     0x07 => {
-                        _ = try bufPrint(&self.instr_desc, " --- SUBN V{}, V{} --- ", .{ reg1, reg2 });
+                        _ = try bufPrint(&self.instr_desc, "SUBN V{}, V{}", .{ reg1, reg2 });
                         self.SUBN(&self.registers[reg1], self.registers[reg2]);
                     },
                     0x0E => {
-                        _ = try bufPrint(&self.instr_desc, " --- SHL V{}, V{} --- ", .{ reg1, reg2 });
+                        _ = try bufPrint(&self.instr_desc, "SHL V{}, V{}", .{ reg1, reg2 });
                         self.SHL(&self.registers[reg1]);
                     },
                     else => {
-                        _ = try bufPrint(&self.instr_desc, " --- NOOP --- {b:0>16}", .{instr});
+                        _ = try bufPrint(&self.instr_desc, "NOOP", .{});
                     },
                 }
             },
@@ -175,47 +174,47 @@ pub const CpuCore = struct {
                 const reg2 = (op_code[1] & 0xF0) >> 4;
                 const last_nib = op_code[1] & 0x0F;
                 if (last_nib == 0x00) {
-                    _ = try bufPrint(&self.instr_desc, " --- SNE V{}, V{}", .{ reg1, reg2 });
+                    _ = try bufPrint(&self.instr_desc, "SNE V{}, V{}", .{ reg1, reg2 });
                     self.SNE(self.registers[reg1], self.registers[reg2]);
                 } else {
-                    _ = try bufPrint(&self.instr_desc, " --- NOOP --- {b:0>16}", .{instr});
+                    _ = try bufPrint(&self.instr_desc, "NOOP", .{});
                 }
             },
             0xA0 => {
                 const addr: u16 = combineOpCode(op_code) & 0x0FFF;
-                _ = try bufPrint(&self.instr_desc, " --- LD I,  0x{X:0>3}  --- addr: {}", .{ addr, addr });
+                _ = try bufPrint(&self.instr_desc, "LD I,  0x{X:0>3}", .{addr});
                 LD_16(&self.I, addr);
             },
             0xB0 => {
                 const addr: u16 = combineOpCode(op_code) & 0x0FFF;
-                _ = try bufPrint(&self.instr_desc, " --- JP V0,  0x{X:0>3}  --- V0: 0x{X:0>3}", .{ addr, self.registers[0] });
+                _ = try bufPrint(&self.instr_desc, "JP V0,  0x{X:0>3}   V0: 0x{X:0>3}", .{ addr, self.registers[0] });
                 self.JMP(addr + self.registers[0]);
             },
             0xC0 => {
                 const reg1 = op_code[0] & 0x0F;
-                _ = try bufPrint(&self.instr_desc, " --- RND V{}, 0x{X:0>2} --- val: {}", .{ reg1, op_code[1], op_code[1] });
+                _ = try bufPrint(&self.instr_desc, "RND V{}, 0x{X:0>2}", .{ reg1, op_code[1] });
                 RND(&self.registers[reg1], op_code[1]);
             },
             0xD0 => {
                 const reg1 = op_code[0] & 0x0F;
                 const reg2 = (op_code[1] & 0xF0) >> 4;
                 const last_nib = op_code[1] & 0x0F;
-                _ = try bufPrint(&self.instr_desc, " --- DRW V{}, V{}, {} --- ", .{ reg1, reg2, last_nib });
-                //self.DRW();
+                _ = try bufPrint(&self.instr_desc, "DRW V{}, V{}, {}", .{ reg1, reg2, last_nib });
+                self.DRW(self.registers[reg1], self.registers[reg2], last_nib); // CHECK THIS
             },
             0xE0 => {
                 const reg1 = op_code[0] & 0x0F;
                 switch (op_code[1]) {
                     0x9E => {
-                        _ = try bufPrint(&self.instr_desc, " --- SKP V{}", .{reg1});
+                        _ = try bufPrint(&self.instr_desc, "SKP V{}", .{reg1});
                         self.SKP(self.registers[reg1]);
                     },
                     0xA1 => {
-                        _ = try bufPrint(&self.instr_desc, " --- SKNP V{}", .{reg1});
+                        _ = try bufPrint(&self.instr_desc, "SKNP V{}", .{reg1});
                         self.SKNP(self.registers[reg1]);
                     },
                     else => {
-                        _ = try bufPrint(&self.instr_desc, " --- NOOP --- {b:0>16}", .{instr});
+                        _ = try bufPrint(&self.instr_desc, "NOOP", .{});
                     },
                 }
             },
@@ -223,50 +222,50 @@ pub const CpuCore = struct {
                 const reg1 = op_code[0] & 0x0F;
                 switch (op_code[1]) {
                     0x07 => {
-                        _ = try bufPrint(&self.instr_desc, " --- LD V{}, DT --- ", .{reg1});
+                        _ = try bufPrint(&self.instr_desc, "LD V{}, DT", .{reg1});
                         LD(&self.registers[reg1], self.delay_timer);
                     },
                     0x0A => {
-                        _ = try bufPrint(&self.instr_desc, " --- LD V{}, K --- ", .{reg1});
+                        _ = try bufPrint(&self.instr_desc, "LD V{}, K", .{reg1});
                         //TODO wait for keypress
                         const val: u8 = 0;
                         LD(&self.registers[reg1], val);
                     },
                     0x15 => {
-                        _ = try bufPrint(&self.instr_desc, " --- LD DT, V{} --- ", .{reg1});
+                        _ = try bufPrint(&self.instr_desc, "LD DT, V{}", .{reg1});
                         LD(&self.delay_timer, self.registers[reg1]);
                     },
                     0x18 => {
-                        _ = try bufPrint(&self.instr_desc, " --- LD ST, V{} --- ", .{reg1});
+                        _ = try bufPrint(&self.instr_desc, "LD ST, V{}", .{reg1});
                         LD(&self.sound_timer, self.registers[reg1]);
                     },
                     0x1E => {
-                        _ = try bufPrint(&self.instr_desc, " --- ADD I, V{}  --- ", .{reg1});
+                        _ = try bufPrint(&self.instr_desc, "ADD I, V{}", .{reg1});
                         ADD_16(&self.I, @intCast(self.registers[reg1]));
                     },
                     0x29 => {
-                        _ = try bufPrint(&self.instr_desc, " --- LD F, V{} --- ", .{reg1});
+                        _ = try bufPrint(&self.instr_desc, "LD F, V{}", .{reg1});
                         self.SET_SPRITE(self.registers[reg1]);
                     },
                     0x33 => {
-                        _ = try bufPrint(&self.instr_desc, " --- LD B, V{} --- ", .{reg1});
+                        _ = try bufPrint(&self.instr_desc, "LD B, V{}", .{reg1});
                         self.BCD(self.registers[reg1]);
                     },
                     0x55 => {
-                        _ = try bufPrint(&self.instr_desc, " --- LD [I], V{} --- ", .{reg1});
+                        _ = try bufPrint(&self.instr_desc, "LD [I], V{}", .{reg1});
                         self.STORE_TO_MEM(reg1);
                     },
                     0x65 => {
-                        _ = try bufPrint(&self.instr_desc, " --- LD V{}, [I] --- ", .{reg1});
+                        _ = try bufPrint(&self.instr_desc, "LD V{}, [I]", .{reg1});
                         self.LOAD_FROM_MEM(reg1);
                     },
                     else => {
-                        _ = try bufPrint(&self.instr_desc, " --- NOOP --- {b:0>16}", .{instr});
+                        _ = try bufPrint(&self.instr_desc, "NOOP", .{});
                     },
                 }
             },
             else => {
-                _ = try bufPrint(&self.instr_desc, " --- NOOP --- {b:0>16}", .{instr});
+                _ = try bufPrint(&self.instr_desc, "NOOP", .{});
             },
         }
     }
@@ -325,14 +324,15 @@ pub const CpuCore = struct {
         }
     }
 
+    // TODO implement wrapping
     fn DRW(self: *CpuCore, x: u8, y: u8, n: u8) void {
         const offset: u8 = x % 8;
         const x_pos: u8 = x / 8;
         var i: u8 = 0;
         while (i < n) {
             // transform the byte at I into two bytes using the offset
-            const first_byte: u8 = self.memory[self.I] >> offset;
-            const second_byte: u8 = self.memory[self.I] << offset;
+            const first_byte: u8 = self.memory[self.I] >> @truncate(offset);
+            const second_byte: u8 = self.memory[self.I] << @truncate(offset);
 
             self.screen_buffer[y][x_pos] ^= first_byte;
             self.screen_buffer[y][x_pos + 1] ^= second_byte;
