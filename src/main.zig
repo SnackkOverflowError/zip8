@@ -1,16 +1,8 @@
 const std = @import("std");
-const glfw = @import("mach-glfw");
 
-const CpuCore = @import("chip_8.zig").CpuCore;
-
-const App = @import("screen.zig").App;
+const Cpu = @import("cpu.zig").Cpu;
 
 const print = std.debug.print;
-
-/// Default GLFW error handling callback
-fn errorCallback(error_code: glfw.ErrorCode, description: [:0]const u8) void {
-    std.log.err("glfw: {}: {s}\n", .{ error_code, description });
-}
 
 /// Keep our main function small. Typically handling arg parsing and initialization only
 pub fn main() !void {
@@ -51,13 +43,10 @@ pub fn main() !void {
     defer gpa.allocator().free(prog_mem);
     const size = try file.readAll(prog_mem);
     print("read in {} bytes\n", .{size});
+    print("type of prog_mem: {}\n", .{@TypeOf(prog_mem)});
 
-    var cpu: CpuCore = CpuCore{};
-    cpu.loadROM(prog_mem);
+    const cpu: Cpu = try Cpu.Init(prog_mem);
+    _ = cpu;
 
-    var app = try App.init(allocator, cpu);
-    defer app.deinit();
-
-    try app.run();
     std.process.exit(0);
 }
