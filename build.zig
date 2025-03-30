@@ -11,6 +11,13 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    exe.linkSystemLibrary("notcurses");
+    exe.linkLibC(); // Required for C interop
+    exe.addCSourceFiles(.{
+        .files = &.{}, // Empty slice if no C source files are needed
+        .flags = &.{},
+    });
+
     b.installArtifact(exe);
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());

@@ -1,5 +1,6 @@
 const std = @import("std");
 const Cpu = @import("cpu.zig").Cpu;
+const input = @import("input.zig");
 
 pub fn processOp(cpu: *Cpu, opcode: u16) void {
     // seperate the opcode into 4 parts
@@ -93,6 +94,7 @@ fn block4(opcode_sections: [4]u4, cpu: *Cpu) void {
             0x07 => LD(&cpu.V[x], cpu.delay),
             0x0A => {
                 // All execution stops until a key is pressed, then the value of that key is stored in Vx.
+                std.debug.print("no op, keyboard", .{});
             },
             0x15 => LD(&cpu.delay, cpu.V[x]),
             0x18 => LD(&cpu.sound, cpu.V[x]),
@@ -148,12 +150,12 @@ fn DRW(cpu: *Cpu, x: u8, y: u8, n: u4) void {
 }
 
 fn SKP(cpu: *Cpu, k: u8) void {
-    _ = cpu;
-    _ = k;
+    const mask: u16 = @as(u16, 0x1) << cpu.V[k];
+    if (mask & cpu.keys != 0) cpu.PC += 1;
 }
 fn SKNP(cpu: *Cpu, k: u8) void {
-    _ = cpu;
-    _ = k;
+    const mask: u16 = @as(u16, 0x1) << cpu.V[k];
+    if (mask & cpu.keys == 0) cpu.PC += 1;
 }
 
 fn RND(cpu: *Cpu, a: *u8, b: u8) void {
