@@ -32,7 +32,7 @@ fn block1(opcode_sections: [4]u4, cpu: *Cpu) void {
         0 => SYS(cpu, address),
         1 => JP(cpu, address),
         2 => CALL(cpu, address),
-        0xA => LD(&cpu.I, address),
+        0xA => LD16(&cpu.I, address),
         0xB => JP(cpu, address + @as(u16, @intCast(cpu.V[0]))),
         else => {
             // error
@@ -74,11 +74,12 @@ fn block3(opcode_sections: [4]u4, cpu: *Cpu) void {
             3 => XOR(&cpu.V[x], cpu.V[y]),
             4 => ADD(&cpu.V[x], cpu.V[y]),
             5 => SUB(&cpu.V[x], cpu.V[y], &cpu.V[0xF]),
-            6 => SHR(&cpu.V[x], cpu.V[y]),
+            6 => SHR(&cpu.V[x], &cpu.V[0xF]),
             7 => SUBN(&cpu.V[x], cpu.V[y], &cpu.V[0xF]),
-            8 => SHL(&cpu.V[x], cpu.V[y]),
+            8 => SHL(&cpu.V[x], &cpu.V[0xF]),
             else => {},
         },
+        else => {},
     }
 }
 fn block4(opcode_sections: [4]u4, cpu: *Cpu) void {
@@ -98,8 +99,8 @@ fn block4(opcode_sections: [4]u4, cpu: *Cpu) void {
             },
             0x15 => LD(&cpu.delay, cpu.V[x]),
             0x18 => LD(&cpu.sound, cpu.V[x]),
-            0x1E => ADD(&cpu.I, cpu.V[x]),
-            0x29 => LD(&cpu.I, cpu.V[x] * 5), // Set I = location of sprite for digit Vx.
+            0x1E => ADD16(&cpu.I, cpu.V[x]),
+            0x29 => LD16(&cpu.I, cpu.V[x] * 5), // Set I = location of sprite for digit Vx.
             0x33 => BCD(cpu, cpu.V[x]),
             // Store registers V0 through Vx in memory starting at location I.
             0x55 => @memcpy(cpu.ram[cpu.I .. cpu.I + x + 1], cpu.V[0 .. x + 1]),
@@ -135,27 +136,60 @@ fn JP(cpu: *Cpu, address: u16) void {
 }
 
 fn SE(cpu: *Cpu, a: u8, b: u8) void {
-    if (a == b) cpu.PC += 1;
+    if (a == b) cpu.PC += 2;
 }
 
 fn SNE(cpu: *Cpu, a: u8, b: u8) void {
-    if (a != b) cpu.PC += 1;
+    if (a != b) cpu.PC += 2;
 }
 
-fn DRW(cpu: *Cpu, x: u8, y: u8, n: u4) void {
-    _ = cpu;
-    _ = x;
-    _ = y;
-    _ = n;
+fn DRW(cpu: *Cpu, x_raw: u8, y: u8, n: u4) void {
+    const sprite: []u8 = cpu.ram[cpu.I .. cpu.I + n];
+
+    const offset = x_raw % 8;
+    const x_1 = x_raw / 8;
+    const x_2 = x_1 + 1;
+    var cleared_pixel = false;
+
+    for (sprite, 0..) |sprite_byte, i| {
+        //std.debug.print("drawing sprite", .{});
+        // grab the original bytes
+        const first_byte = cpu.screen[(y + i) % 32][x_1 % 8];
+        const second_byte = cpu.screen[(y + i) % 32][x_2 % 8];
+
+        // calc sprite 1
+        const sprite_1: u8 = if (offset >= 8) 0 else sprite_byte >> @truncate(offset);
+
+        // calc sprite 2
+        const sprite_2: u8 = if (offset >= 8) 0 else sprite_byte << @truncate(7 - offset);
+
+        std.debug.print("{}---{b:0>8}---{b:0>8}{b:0>8}\n", .{ offset, sprite_byte, sprite_1, sprite_2 });
+        // calculate the new bytes
+        const first_byte_new = first_byte ^ sprite_1;
+        const second_byte_new = second_byte ^ sprite_2;
+
+        // check for cleared pixels
+        if ((first_byte & ~first_byte_new != 0) or (second_byte & ~second_byte_new != 0)) {
+            cleared_pixel = true;
+        }
+
+        cpu.screen[(y + i) % 32][x_1 % 8] = first_byte_new;
+        cpu.screen[(y + i) % 32][x_2 % 8] = second_byte_new;
+    }
+    if (cleared_pixel) {
+        cpu.V[0xF] = 0x1;
+    } else {
+        cpu.V[0xF] = 0x0;
+    }
 }
 
 fn SKP(cpu: *Cpu, k: u8) void {
-    const mask: u16 = @as(u16, 0x1) << cpu.V[k];
-    if (mask & cpu.keys != 0) cpu.PC += 1;
+    const mask: u16 = @as(u16, 0x1) << @truncate(cpu.V[k]);
+    if (mask & cpu.keys != 0) cpu.PC += 2;
 }
 fn SKNP(cpu: *Cpu, k: u8) void {
-    const mask: u16 = @as(u16, 0x1) << cpu.V[k];
-    if (mask & cpu.keys == 0) cpu.PC += 1;
+    const mask: u16 = @as(u16, 0x1) << @truncate(cpu.V[k]);
+    if (mask & cpu.keys == 0) cpu.PC += 2;
 }
 
 fn RND(cpu: *Cpu, a: *u8, b: u8) void {
@@ -172,24 +206,30 @@ fn BCD(cpu: *Cpu, x: u8) void {
 fn LD(a: *u8, b: u8) void {
     a.* = b;
 }
+fn LD16(a: *u16, b: u16) void {
+    a.* = b;
+}
 fn ADD(a: *u8, b: u8) void {
     a.* += b;
 }
+fn ADD16(a: *u16, b: u16) void {
+    a.* += b;
+}
 fn SUB(a: *u8, b: u8, vf: *u8) void {
-    if (a > b) {
+    if (a.* > b) {
         vf.* = 1;
     } else {
         vf.* = 0;
     }
-    a.* = a - b;
+    a.* = a.* - b;
 }
 fn SUBN(a: *u8, b: u8, vf: *u8) void {
-    if (b > a) {
+    if (b > a.*) {
         vf.* = 1;
     } else {
         vf.* = 0;
     }
-    a.* = b - a;
+    a.* = b - a.*;
 }
 
 fn OR(a: *u8, b: u8) void {
@@ -202,21 +242,21 @@ fn XOR(a: *u8, b: u8) void {
     a.* ^= b;
 }
 fn SHR(a: *u8, vf: *u8) void {
-    if (a & 0x80 != 0) {
+    if (a.* & 0x80 != 0) {
         vf.* = 1;
     } else {
         vf.* = 0;
     }
-    a.* = a << 1;
+    a.* = a.* << 1;
 }
 
 fn SHL(a: *u8, vf: *u8) void {
-    if (a & 0x01 != 0) {
+    if (a.* & 0x01 != 0) {
         vf.* = 1;
     } else {
         vf.* = 0;
     }
-    a.* = a >> 1;
+    a.* = a.* >> 1;
 }
 
 fn split_op(op: u16) [4]u4 {
@@ -233,6 +273,6 @@ fn form_nnn(op: [4]u4) u16 {
     return (@as(u16, op[1]) << 8) | (@as(u16, op[2]) << 4) | (@as(u16, op[3]));
 }
 
-fn form_byte(a: u4, b: u4) u16 {
-    return @as(u8, a << 4) | (@as(u8, b));
+fn form_byte(a: u4, b: u4) u8 {
+    return (@as(u8, a) << 4) | (@as(u8, b));
 }

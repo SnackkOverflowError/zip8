@@ -5,8 +5,8 @@ const notcurses = @cImport({
     @cInclude("notcurses/notcurses.h");
 });
 
-const rows: usize = 160;
-const cols: usize = 144;
+const rows: usize = 32;
+const cols: usize = 64;
 
 pub const Display = struct {
     nc: *notcurses.struct_notcurses,
@@ -16,7 +16,7 @@ pub const Display = struct {
 
     rows: c_int = rows,
     cols: c_int = cols,
-    bytes_per_pixel: c_int = 4,
+    bytes_per_pixel: c_int = 3,
 
     pub fn init() !Display {
         const nc = notcurses.notcurses_init(null, null) orelse return error.InitFailed;
@@ -40,7 +40,7 @@ pub const Display = struct {
         if (self.latest_visual != null) {
             _ = notcurses.ncvisual_destroy(self.latest_visual);
         }
-        self.latest_visual = notcurses.ncvisual_from_rgba(&screen, self.rows, self.cols * self.bytes_per_pixel, self.cols) orelse return error.VisualFailed;
+        self.latest_visual = notcurses.ncvisual_from_rgb_packed(&screen, self.rows, self.cols * self.bytes_per_pixel, self.cols, 255) orelse return error.VisualFailed;
         _ = notcurses.ncvisual_blit(self.nc, self.latest_visual, self.vopts) orelse return error.RenderFailed;
         _ = notcurses.notcurses_render(self.nc);
     }

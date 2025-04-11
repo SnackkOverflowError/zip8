@@ -7,35 +7,28 @@ const operations = @import("operations.zig");
 const utils = @import("utils.zig");
 
 const print = std.debug.print;
+const expect = std.testing.expect;
 
-pub fn main() !void {
+test "splash_screen" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    const path: [:0]u8 = try utils.getFilePath(allocator);
-    //print("got path: {s}\n", .{path});
-    defer allocator.free(path);
+    //const path: [:0]u8 = "../../test_programs/1-chip8-logo.ch8"[0..];
 
     const prog_mem = try utils.getProgMem(path, allocator);
     defer allocator.free(prog_mem);
 
     // make a screen
-    //var display: Display = try Display.init();
+    var display: Display = try Display.init();
 
-    var cpu: Cpu = try Cpu.init(prog_mem, null);
+    var cpu: Cpu = try Cpu.init(prog_mem, &display);
     //try cpu.display.display(cpu.getScreen());
-    for (0..39) |i| {
+    for (0..39) |_| {
         try cpu.cycle();
-        print("index: {}\n", .{i});
-        cpu.printScreen();
-        // std.time.sleep(1 * std.time.ns_per_s);
     }
 
     std.time.sleep(2 * std.time.ns_per_s);
 
-    if (cpu.display) |disp| {
-        try disp.destroy();
-    }
-    std.process.exit(0);
+    try cpu.display.destroy();
 }

@@ -1,6 +1,6 @@
 const std = @import("std");
 const Tuple = std.meta.Tuple;
-const KeyReturn = Tuple(&.{ u32, bool });
+const KeyReturn = Tuple(&.{ u16, bool });
 
 const notcurses = @cImport({
     @cInclude("notcurses/notcurses.h");

@@ -1,5 +1,7 @@
 const std = @import("std");
 const Display = @import("display.zig").Display;
+const operations = @import("operations.zig");
+const input = @import("input.zig");
 
 const sprites = [_]u8{
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -23,14 +25,14 @@ const sprites = [_]u8{
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 };
 
-const rows: usize = 160;
-const cols: usize = 144;
+const rows: usize = 32;
+const cols: usize = 64;
 
 pub const Cpu = struct {
     V: [16]u8 = [_]u8{0} ** 16,
     I: u16 = 0,
 
-    PC: u16 = 0,
+    PC: u16 = 0x200,
     SP: u8 = 0,
 
     sound: u8 = 0,
@@ -44,11 +46,11 @@ pub const Cpu = struct {
     rows: usize = rows,
     cols: usize = cols,
     screen: [rows][cols / 8]u8,
-    display: *Display,
+    display: ?*Display,
 
     keys: u16 = 0,
 
-    pub fn init(prog_mem: []u8, disp: *Display) !Cpu {
+    pub fn init(prog_mem: []u8, disp: ?*Display) !Cpu {
         // create the random number generator
         var prng = std.Random.DefaultPrng.init(blk: {
             var seed: u64 = undefined;
@@ -69,6 +71,29 @@ pub const Cpu = struct {
         return cpu;
     }
 
+    pub fn cycle(self: *Cpu) !void {
+        if (self.display) |display| {
+            // get the keystate
+            const key_state = input.getKeyboardState(display.nc);
+            // TODO check for quit
+            self.keys = key_state[0];
+        }
+
+        // fetch op code
+        const op: u16 = (@as(u16, self.ram[self.PC]) << 8) | (@as(u16, self.ram[self.PC + 1]));
+        //std.debug.print("op: 0x{x:0>4}, pc: 0x{x:0>4}\n", .{ op, self.PC });
+        self.PC += 2;
+        // process op code
+        operations.processOp(self, op);
+
+        // display to screen
+        if (self.display) |display| {
+            try display.display(self.getScreen());
+        }
+        // delay to maintain 60hz
+
+    }
+
     pub fn getScreen(self: Cpu) [rows * cols * 3]u8 {
         var screen: [rows * cols * 3]u8 = [_]u8{0} ** (rows * cols * 3);
         // set pixels to 255 or 0
@@ -79,11 +104,22 @@ pub const Cpu = struct {
                     const mask: u8 = @as(u8, 0x1) << @as(u3, 7 - @as(u3, @truncate(bit_idx)));
                     if (mask & val != 0) {
                         // bit is high
-                        screen[row_idx * cols + col_idx] = 255;
+                        screen[row_idx * cols + col_idx + 0] = 255;
+                        screen[row_idx * cols + col_idx + 1] = 255;
+                        screen[row_idx * cols + col_idx + 2] = 255;
                     }
                 }
             }
         }
         return screen;
+    }
+
+    pub fn printScreen(self: *Cpu) void {
+        for (self.screen) |row| {
+            for (row) |val| {
+                std.debug.print("{b:0>8}", .{val});
+            }
+            std.debug.print("\n", .{});
+        }
     }
 };
